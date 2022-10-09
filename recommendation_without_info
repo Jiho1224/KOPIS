@@ -1,0 +1,75 @@
+import sqlite3
+import pandas as pd
+import math
+from sklearn.metrics import pairwise
+from sklearn.cluster import KMeans
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+
+# 코사인 유사도
+def cosine_sim(A,B):
+    dot_p = np.dot(A,B)
+    A_norms = math.sqrt(sum([i**2 for i in A]))
+    B_norms = math.sqrt(sum([i**2 for i in B]))
+    AB_norms = A_norms * B_norms
+
+    return dot_p / AB_norms
+# 실질적으로 추천을 받는 사람의 취향 데이터 없이 추천에 사용될 수 있는 데이터는 성별, 나이
+
+# 성별과 나이 외에 다른 데이터를 받지 못한다면 인구통계학적 필터링(Demographic Filtering)을
+# 사용하여 추천할 수 있도록 한다.
+con = sqlite3.connect("C:/Users/user/Desktop/프로젝트/KOPIS/test_db.db")
+df = pd.read_sql("SELECT * FROM kopis_final_data_ver4",con,index_col=None)
+
+# 각 군집 별로 평균 벡터 구하기
+# 모든 객체와 유사도를 구할 수 있도록 함
+c_number = list(set(df['cluster']))
+c_mean = []
+for i in c_number:
+    tmp = df[df['cluster'] == i]
+    tmp2 = list(tmp.iloc[:,1:].mean())
+    c_mean.append(tmp2)
+
+k_sim = []
+#각 객체별로 클러스터와 유사도를 구함
+for i in range(len(df)):
+    tmp = []
+    for j in c_mean:
+        tmp.append(cosine_sim(list(tmp.iloc[i,1:-1]),j))
+    k_sim.append(tmp)
+
+pd.DataFrame(k_sim)
+
+# 유클리드 거리 기반으로 측정하여 군집화 후 해당 군집의 상위 5개 목록 추출
+temp_code = 'xxxxx'
+new_data ={'공연코드':temp_code,'성별' : 'F', '연령': 23,'지역명':'서울'}
+c_number = list(set(df['cluster'])) #군집 개수
+sex_age_df = df[['성별','연령','지역명']] #성별, 연령만 모은 새로운 df 생성
+
+new_age = new_data['연령']
+if(new_data['성별'] == 'F'):
+    new_sex = 2
+else:
+    new_sex = 1
+
+scaler = MinMaxScaler()
+data_scale = scaler.fit_transform(sex_age_df)
+
+Demographic_model = KMeans(n_cluster = c_number)
+Demographic_model.fit(sex_age_df)
+new_cluster = Demographic_model.fit_predict(new_data) #새로운 데이터가 어떤 군집에 속하는지
+
+df['cluster'] = Demographic_model.fit_predict(data_scale)
+same_cluster = df[df['cluster'] == new_cluster]  #같은 군집에 속한 다른 공연 추출
+same_cluster.sort_values(by='개수',ascending=False) #가장 예매를 많이 한 순서대로 정렬
+print("추천 결과")
+for i in range(5):
+    print("#"+str(i+1)+ same_cluster[i]['공연코드'] )
+
+
+
+
+
+# 두번째 방법으로는 초기 사용자에 대해 규칙기반 필터링(Rule-based Filtering) 을 시행한다.
+# 각 군집 별 데이터를 랜덤으로 보여주고, 사용자의 호불에 따라 사용자 취향 군집을 특정, 해당 군집의 다른
+# 작품을 output으로 내도록 한다.
