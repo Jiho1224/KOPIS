@@ -1,0 +1,33 @@
+import sqlite3
+import pandas as pd
+import math
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
+
+
+
+
+con = sqlite3.connect("C:/Users/user/Desktop/프로젝트/KOPIS/test_db.db")
+df = pd.read_sql("SELECT * FROM kopis_final_data_ver4",con,index_col=None)
+
+user_watched = []
+user_rating = []
+
+# 사용자가 선택한 공연 속성 사이의 유사도 측정
+
+
+col_list = ['장애인시설_여부','주차시설_여부','무대시설_오케스트라피트_여부','공연장코드','장르명',
+            '세부장르명','공연지역명','소요시간','장당금액','성별','연령','관람연령','기획제작사명']
+
+new_df = df[col_list]
+user_df = []
+
+#사용자가 본 공연 dataframe을 생성해준다.
+for i in range(user_watched):
+    tmp = df[df['공연코드'] == user_watched[i]]
+    user_df.append(tmp[0])
+
+cnt_vect = CountVectorizer(min_df=0, ngram_range=(1,2))
+barrier_vect = cnt_vect.fit_transform(new_df['장애인시설_여부'])
+parking_vect = cnt_vect.fit_transform(new_df['주차시설_여부'])
+orche_vect = cnt_vect.fit_transform(new_df['무대시설_오케스트라피트_여부'])
