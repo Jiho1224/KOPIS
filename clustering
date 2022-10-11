@@ -1,0 +1,54 @@
+import sqlite3
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+
+con = sqlite3.connect("C:/Users/user/Desktop/프로젝트/KOPIS/test_db.db")
+df = pd.read_sql("SELECT * FROM kopis_finalData_ver4",con,index_col=None)
+
+
+
+#표준화 -> 모든 값을 비슷하게 변형
+cc = df[['공연장코드','성별','연령','공연지역명','소요시간','기획제작사명','금액']]
+sc = StandardScaler()
+cc_scaled = sc.fit_transform(cc)
+# print(pd.DataFrame(cc_scaled))
+
+# 차원 축소
+pca = PCA(n_components=2)
+pca.fit(cc_scaled)
+x_pca = pca.transform(cc_scaled)
+print(x_pca)
+
+#k 평균값을 이용하여 소비자 차원 축소
+kmeans = KMeans(n_clusters  =6, random_state=0)
+clusters = kmeans.fit(x_pca)
+
+new_df = pd.DataFrame(x_pca)
+new_df['cluster'] = clusters.labels_
+print(new_df.groupby('cluster').count())
+
+
+axs = plt.subplots()
+
+for i in sorted(new_df['cluster'].unique()):
+    if(i == 4):
+        continue
+    tmp = new_df.loc[new_df['cluster'] == i]
+    plt.scatter(tmp[0],tmp[1])
+    plt.legend(sorted(new_df['cluster'].unique()))
+
+plt.show()
+
+df['cluster'] = clusters.labels_
+df.to_sql("kopis_finalData_ver5", con, if_exists="replace", index=False)
+
+# 어느정도 균일하게 군집화 될 수 있도록 군집의 개수를 조정=> 6개
+# 0        4192  4192
+# 1        2589  2589
+# 2        4385  4385
+# 3        4043  4043
+# 4        5750  5750
+# 5        7482  7482
